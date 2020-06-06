@@ -1,0 +1,40 @@
+.App {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+
+.piano {
+  display: flex;
+      height: 200px;
+      border: 5px solid black;
+      width: max-content;
+      color: coral;
+      margin-bottom: 20px;
+      margin-top: auto;
+    }
+
+    .whitenote
+    {
+      position: relative;
+      cursor: pointer;
+      height: 100%;
+      width: 50px;
+      background: white;
+      float: left;
+      border-right: 1px solid black;
+    }
+
+    .blacknote
+    {
+      position: absolute;
+      cursor: pointer;
+      height: 65%;
+      width: 55%;
+      background: #000;
+      z-index: 1;
+      left: 68%;
+    }
