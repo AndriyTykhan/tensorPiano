@@ -1,16 +1,19 @@
-import React, { useEffect, useRef } from 'react'
-// import { handpose } from '@tensorflow-models/handpose';
-import '@tensorflow/tfjs-backend-webgl';
+import React, { useEffect, useRef } from "react";
+import * as tf from "@tensorflow/tfjs-core";
+import * as Stats from "stats.js";
+import * as handpose from "@tensorflow-models/handpose";
 
-const tf = require('@tensorflow/tfjs-core');
-const handpose = require('@tensorflow-models/handpose');
+import "@tensorflow/tfjs-backend-webgl";
 
-const startStram = ref => {
+import { setupDatGui, drawKeypoints } from "../utils/index";
+
+const startStram = (ref) => {
   if (navigator.mediaDevices.getUserMedia) {
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then(stream => ref.current.srcObject = stream);
+    navigator.mediaDevices
+      .getUserMedia({ video: true })
+      .then((stream) => (ref.current.srcObject = stream));
   }
-}
+};
 
 const HandDectect = () => {
   const cameraRef = useRef();
@@ -18,79 +21,73 @@ const HandDectect = () => {
   const movieRef = useRef();
 
   const loadModel = async () => {
+    const stats = new Stats();
+    stats.showPanel(0);
+    document.body.appendChild(stats.dom);
+
     const canvas = canvasRef.current;
-		const draw = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d");
     const model = await handpose.load();
 
-    while(1)
-				{
-					// copy camera stream to canvas
-					draw.drawImage(cameraRef.current, 0, 0, 640, 480);
+    while (1) {
+      stats.begin();
+      // copy camera stream to canvas
+      ctx.drawImage(cameraRef.current, 0, 0, 640, 480);
 
-					// track hand position
-          const result = await model.estimateHands(cameraRef.current);
-          console.log('results', result);
+      // track hand position
+      const predictions = await model.estimateHands(cameraRef.current);
 
-          // size of media player
-          const w = 250;
-          const h = 150;
-          // default position : top right corner
-          let index_x = canvas.width - w - 10;
-          let index_y = 10;
+      if (predictions.length > 0) {
+        const result = predictions[0].landmarks;
+        const annotations = predictions[0].annotations;
 
-					// check if hand is detected
-					if(result.length > 0)
-					{
-						// get hand co-ordinates
-            const hand = result[0];
-            console.log('hand', hand);
 
-						// update index finger tip position
-						const index = hand.annotations.indexFinger;
+        let pos = annotations.indexFinger[0][0].toFixed(0);
 
-						index_x = Math.round(index[3][0]);
-						index_y = Math.round(index[3][1]);
-					}
+        console.log('0--------------------------', pos)
 
-					// // display media player at assigned location
-					draw.drawImage(movieRef.current, index_x, index_y, w, h);
-
-					// // loop to process the next frame
-					await tf.nextFrame();
-				}
-
-    console.log('moedl------', model)
-  }
+        if (annotations.indexFinger[0][0].toFixed(0) !== pos) {
+          // console.log('0--------------------------',annotations?.indexFinger[0])
+        }
+        
+        
+        drawKeypoints(ctx, result, annotations);
+      }
+      stats.end();
+      await tf.nextFrame();
+    }
+  };
 
   const main = () => {
-    const camera = cameraRef.current
-    if(camera && camera.readyState == 4) {
+    const camera = cameraRef.current;
+    if (camera && camera.readyState === 4) {
       console.log("video is ready for processing..");
       loadModel();
-    }
-    else {
+    } else {
       console.log("nope, not ready yet..");
-      setTimeout(main, 1000/30);
+      setTimeout(main, 1000 / 30);
     }
-  }
+  };
 
   useEffect(() => {
     startStram(cameraRef);
-    main()
-  })
+    main();
+  });
 
   return (
     <>
+      <div id="info" style={{ display: "none" }}></div>
+      <video width="640" height="480" autoPlay muted ref={cameraRef} />
+      <canvas width="640" height="480" ref={canvasRef} />
       <video
-        width="640"
-        height="480"
         autoPlay
         muted
-        ref={cameraRef} />
-        <canvas width="640" height="480" ref={canvasRef} />
-        <video autoPlay muted loop ref={movieRef} style={{ visibility: "hidden" }} />
+        loop
+        ref={movieRef}
+        style={{ visibility: "hidden" }}
+      />
     </>
-  )
-}
+  );
+};
 
 export default HandDectect;

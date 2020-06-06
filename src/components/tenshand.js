@@ -1,45 +1,52 @@
-import React from 'react';
+import React, { useEffect, useRef } from "react";
 
-import * as handpose from '@tensorflow-models/handpose';
-import * as tfjsWasm from '@tensorflow/tfjs-backend-wasm';
-import {version_wasm} from '@tensorflow/tfjs-backend-wasm';
+import * as tf from "@tensorflow/tfjs-core";
+import * as dat from "dat.gui";
+import * as Stats from "stats.js";
+import { ScatterGL } from "scatter-gl";
+import * as handpose from "@tensorflow-models/handpose";
+import * as tfjsWasm from "@tensorflow/tfjs-backend-wasm";
+import { version_wasm } from "@tensorflow/tfjs-backend-wasm";
+
+import "@tensorflow/tfjs-backend-webgl";
 
 tfjsWasm.setWasmPath(
-    `https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@${
-        version_wasm}/dist/tfjs-backend-wasm.wasm`);
+  `https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@${version_wasm}/dist/tfjs-backend-wasm.wasm`
+);
 
-let videoWidth, videoHeight,
-    scatterGLHasInitialized = false, scatterGL, fingerLookupIndices = {
-      thumb: [0, 1, 2, 3, 4],
-      indexFinger: [0, 5, 6, 7, 8],
-      middleFinger: [0, 9, 10, 11, 12],
-      ringFinger: [0, 13, 14, 15, 16],
-      pinky: [0, 17, 18, 19, 20]
-    };  // for rendering each finger as a polyline
+let videoWidth,
+  videoHeight,
+  scatterGLHasInitialized = false,
+  scatterGL,
+  fingerLookupIndices = {
+    thumb: [0, 1, 2, 3, 4],
+    indexFinger: [0, 5, 6, 7, 8],
+    middleFinger: [0, 9, 10, 11, 12],
+    ringFinger: [0, 13, 14, 15, 16],
+    pinky: [0, 17, 18, 19, 20],
+  }; // for rendering each finger as a polyline
 
 const VIDEO_WIDTH = 640;
 const VIDEO_HEIGHT = 500;
-const mobile = isMobile();
-// Don't render the point cloud on mobile in order to maximize performance and
-// to avoid crowding limited screen space.
-const renderPointcloud = mobile === false;
 
 const state = {
-  backend: 'webgl',
+  backend: "webgl",
   renderPointcloud: true,
 };
 
 function setupDatGui() {
   const gui = new dat.GUI();
-  gui.add(state, 'backend', ['wasm', 'webgl', 'cpu', 'webgpu'])
-      .onChange(async backend => {
-        await tf.setBackend(backend);
-      });
+  gui
+    .add(state, "backend", ["wasm", "webgl", "cpu", "webgpu"])
+    .onChange(async (backend) => {
+      await tf.setBackend(backend);
+    });
 
-      gui.add(state, 'renderPointcloud').onChange(render => {
-        document.querySelector('#scatter-gl-container').style.display =
-            render ? 'inline-block' : 'none';
-      });
+  gui.add(state, "renderPointcloud").onChange((render) => {
+    document.querySelector("#scatter-gl-container").style.display = render
+      ? "inline-block"
+      : "none";
+  });
 }
 
 function drawPoint(ctx, y, x, r) {
@@ -60,7 +67,7 @@ function drawKeypoints(ctx, keypoints) {
   const fingers = Object.keys(fingerLookupIndices);
   for (let i = 0; i < fingers.length; i++) {
     const finger = fingers[i];
-    const points = fingerLookupIndices[finger].map(idx => keypoints[idx]);
+    const points = fingerLookupIndices[finger].map((idx) => keypoints[idx]);
     drawPath(ctx, points, false);
   }
 }
@@ -81,76 +88,19 @@ function drawPath(ctx, points, closePath) {
 
 let model;
 
-async function setupCamera() {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    throw new Error(
-        'Browser API navigator.mediaDevices.getUserMedia not available');
-  }
-
-  const video = document.getElementById('video');
-  const stream = await navigator.mediaDevices.getUserMedia({
-    'audio': false,
-    'video': {
-      facingMode: 'user',
-      width: VIDEO_WIDTH,
-      height: VIDEO_HEIGHT
-    },
-  });
-  video.srcObject = stream;
-
-  return new Promise((resolve) => {
-    video.onloadedmetadata = () => {
-      resolve(video);
-    };
-  });
-}
-
-async function loadVideo() {
-  const video = await setupCamera();
-  video.play();
-  return video;
-}
-
-const main = async () => {
-  await tf.setBackend(state.backend);
-  model = await handpose.load();
-  let video;
-
-  try {
-    video = await loadVideo();
-  } catch (e) {
-    let info = document.getElementById('info');
-    info.textContent = e.message;
-    info.style.display = 'block';
-    throw e;
-  }
-
-  landmarksRealTime(video);
-}
-
 const landmarksRealTime = async (video) => {
-  setupDatGui();
+  // setupDatGui();
 
-  const stats = new Stats();
-  stats.showPanel(0);
-  document.body.appendChild(stats.dom);
+  // const stats = new Stats();
+  // stats.showPanel(0);
+  // document.body.appendChild(stats.dom);
 
-  videoWidth = video.videoWidth;
-  videoHeight = video.videoHeight;
-
-  const canvas = document.getElementById('output');
-
-  canvas.width = videoWidth;
-  canvas.height = videoHeight;
-
-  const ctx = canvas.getContext('2d');
-
-  video.width = videoWidth;
-  video.height = videoHeight;
+  const canvas = document.getElementById("output");
+  const ctx = canvas.getContext("2d");
 
   ctx.clearRect(0, 0, videoWidth, videoHeight);
-  ctx.strokeStyle = 'red';
-  ctx.fillStyle = 'red';
+  ctx.strokeStyle = "red";
+  ctx.fillStyle = "red";
 
   ctx.translate(canvas.width, 0);
   ctx.scale(-1, 1);
@@ -158,82 +108,118 @@ const landmarksRealTime = async (video) => {
   // These anchor points allow the hand pointcloud to resize according to its
   // position in the input.
   const ANCHOR_POINTS = [
-    [0, 0, 0], [0, -VIDEO_HEIGHT, 0], [-VIDEO_WIDTH, 0, 0],
-    [-VIDEO_WIDTH, -VIDEO_HEIGHT, 0]
+    [0, 0, 0],
+    [0, -VIDEO_HEIGHT, 0],
+    [-VIDEO_WIDTH, 0, 0],
+    [-VIDEO_WIDTH, -VIDEO_HEIGHT, 0],
   ];
 
   async function frameLandmarks() {
-    stats.begin();
+    // stats.begin();
     ctx.drawImage(
-        video, 0, 0, videoWidth, videoHeight, 0, 0, canvas.width,
-        canvas.height);
+      video,
+      0,
+      0,
+      videoWidth,
+      videoHeight,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+    console.log('video', video)
     const predictions = await model.estimateHands(video);
-    if (predictions.length > 0) {
-      const result = predictions[0].landmarks;
-      drawKeypoints(ctx, result, predictions[0].annotations);
+    // if (predictions.length > 0) {
+    //   const result = predictions[0].landmarks;
+    //   drawKeypoints(ctx, result, predictions[0].annotations);
 
-      if (renderPointcloud === true && scatterGL != null) {
-        const pointsData = result.map(point => {
-          return [-point[0], -point[1], -point[2]];
-        });
+    //   if (scatterGL != null) {
+    //     const pointsData = result.map((point) => {
+    //       return [-point[0], -point[1], -point[2]];
+    //     });
 
-        const dataset =
-            new ScatterGL.Dataset([...pointsData, ...ANCHOR_POINTS]);
+    //     const dataset = new ScatterGL.Dataset([
+    //       ...pointsData,
+    //       ...ANCHOR_POINTS,
+    //     ]);
 
-        if (!scatterGLHasInitialized) {
-          scatterGL.render(dataset);
+    //     if (!scatterGLHasInitialized) {
+    //       scatterGL.render(dataset);
 
-          const fingers = Object.keys(fingerLookupIndices);
+    //       const fingers = Object.keys(fingerLookupIndices);
 
-          scatterGL.setSequences(
-              fingers.map(finger => ({indices: fingerLookupIndices[finger]})));
-          scatterGL.setPointColorer((index) => {
-            if (index < pointsData.length) {
-              return 'steelblue';
-            }
-            return 'white';  // Hide.
-          });
-        } else {
-          scatterGL.updateDataset(dataset);
-        }
-        scatterGLHasInitialized = true;
-      }
-    }
-    stats.end();
-    requestAnimationFrame(frameLandmarks);
-  };
+    //       scatterGL.setSequences(
+    //         fingers.map((finger) => ({ indices: fingerLookupIndices[finger] }))
+    //       );
+    //       scatterGL.setPointColorer((index) => {
+    //         if (index < pointsData.length) {
+    //           return "steelblue";
+    //         }
+    //         return "white"; // Hide.
+    //       });
+    //     } else {
+    //       scatterGL.updateDataset(dataset);
+    //     }
+    //     scatterGLHasInitialized = true;
+    //   }
+    // }
+    // stats.end();
+    await tf.nextFrame();
+    // requestAnimationFrame(frameLandmarks);
+  }
 
   frameLandmarks();
 
-  if (renderPointcloud) {
-    document.querySelector('#scatter-gl-container').style =
-        `width: ${VIDEO_WIDTH}px; height: ${VIDEO_HEIGHT}px;`;
+  // document.querySelector(
+  //   "#scatter-gl-container"
+  // ).style = `width: ${VIDEO_WIDTH}px; height: ${VIDEO_HEIGHT}px;`;
 
-    scatterGL = new ScatterGL(
-        document.querySelector('#scatter-gl-container'),
-        {'rotateOnStart': false, 'selectEnabled': false});
+  // scatterGL = new ScatterGL(document.querySelector("#scatter-gl-container"), {
+  //   rotateOnStart: false,
+  //   selectEnabled: false,
+  // });
+};
+
+const startStream = (ref) => {
+  if (navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices
+      .getUserMedia({ video: true })
+      .then((stream) => (ref.current.srcObject = stream));
   }
 };
 
 const Hand = () => {
+  const cameraRef = useRef();
 
-    useEffect(() => {
-        main()
-    })
+  const start = async () => {
+    const camera = cameraRef.current;
+    if (camera && camera.readyState === 4) {
+      console.log("video is ready for processing..");
+      await tf.ready();
+      model = await handpose.load();
+      landmarksRealTime(camera);
+    } else {
+      console.log("nope, not ready yet..");
+      setTimeout(start, 1000 / 30);
+    }
+  };
 
-    return (
-        <>
-             <div id="info" style='display:none'></div>
-            <div id="predictions"></div>
-            <div id="canvas-wrapper">
-                <canvas id="output"></canvas>
-                <video id="video" playsInline>
-            </video>
-            </div>
-            <div id="scatter-gl-container"></div>
-        </>
-    )
-}
+  useEffect(() => {
+    startStream(cameraRef);
+    start();
+  });
 
+  return (
+    <>
+      <div id="info" style={{ display: "none" }}></div>
+      <div id="predictions"></div>
+      <div id="canvas-wrapper">
+      <canvas width="640" height="480" id="output" />
+        <video id="video" width="640" height="480" autoPlay muted ref={cameraRef} />
+      </div>
+      <div id="scatter-gl-container"></div>
+    </>
+  );
+};
 
 export default Hand;
